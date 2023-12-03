@@ -1,0 +1,79 @@
+#!/bin/bash
+
+user=otrs
+cmd=`grep $user /etc/passwd | awk -F: {'print $1'}`
+
+if [ "$cmd" = "$user" ]; then
+    echo "Usuário ja existe"
+else
+    # Add user for Debian/Ubuntu
+    echo "Criando usuário..."
+    useradd -d /opt/otrs -c 'Znuny user' -g www-data -s /bin/bash -M -N otrs
+
+    # Download Znuny
+    cd /opt
+    wget https://download.znuny.org/releases/znuny-latest-6.5.tar.gz
+
+    # Extract
+    tar xfz znuny-latest-6.5.tar.gz
+
+    # Create a symlink
+    mkdir /opt/otrs
+    mv /opt/znuny-6.5.4/* /opt/otrs/
+
+    cp /opt/otrs/Kernel/Config.pm.dist /opt/otrs/Kernel/Config.pm
+    /opt/otrs/bin/otrs.SetPermissions.pl
+    su -c 'cd /opt/otrs/var/cron; for foo in *.dist; do cp $foo `basename $foo .dist`; done' -s /bin/sh $user
+    ln -s /opt/otrs/scripts/apache2-httpd.include.conf /etc/apache2/conf-available/zzz_znuny.conf
+    # Enable the needed Apache modules:
+    a2enmod perl headers deflate filter cgi
+    a2dismod mpm_event
+    a2enmod mpm_prefork
+    a2enconf zzz_znuny
+
+    # Enable Znuny Cron - Switch to the otrs user:
+    su -c '/opt/otrs/bin/Cron.sh start' -s /bin/sh $user
+    # Enable Znuny Daemon
+    su -c '/opt/otrs/bin/otrs.Daemon.pl start' -s /bin/sh $user
+
+    echo "Usuário criado!"
+fi
+
+
+#if [ -e /opt/otrs/Kernel/Config.pm ]; then
+#    echo "Arquivo já existe."
+#else
+#    echo "Criando arquivo..."
+#    # Copy Default Config
+#    cp /opt/otrs/Kernel/Config.pm.dist /opt/otrs/Kernel/Config.pm
+#    echo "Arquivo criado!"
+#fi
+#
+# Set permissions
+#/opt/otrs/bin/otrs.SetPermissions.pl
+#
+# As otrs User - Rename default cronjobs
+#su -c 'cd /opt/otrs/var/cron; for foo in *.dist; do cp $foo `basename $foo .dist`; done' -s /bin/sh $user
+#
+#if [ -e  /etc/apache2/conf-available/zzz_znuny.conf ]; then
+#    echo "Arquivo já existe."
+#else
+#    echo "Criando arquivo..."
+#    ln -s /opt/otrs/scripts/apache2-httpd.include.conf /etc/apache2/conf-available/zzz_znuny.conf
+#    echo "Arquivo criado!"
+#fi
+#
+# Enable the needed Apache modules:
+#a2enmod perl headers deflate filter cgi
+#a2dismod mpm_event
+#a2enmod mpm_prefork
+#a2enconf zzz_znuny
+#
+# Enable Znuny Cron - Switch to the otrs user:
+su -c '/opt/otrs/bin/Cron.sh start' -s /bin/sh $user
+
+# Enable Znuny Daemon
+su -c '/opt/otrs/bin/otrs.Daemon.pl start' -s /bin/sh $user
+
+# Subindo serviço do apache.
+/usr/sbin/apache2ctl -D FOREGROUND

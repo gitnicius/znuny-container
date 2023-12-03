@@ -1,0 +1,47 @@
+version: "3.7"
+
+networks:
+  _net:
+    driver: bridge
+
+volumes:
+  _db:
+
+services:
+  mariadb:
+    image: mariadb-znuny
+    container_name: mariadb
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 250M
+    volumes:
+      - _db:/var/lib/mysql
+    networks:
+      - _net
+    environment:
+      MARIADB_ROOT_PASSWORD: znuny
+
+  web-znuny:
+    image: web-znuny
+    container_name: web-znuny
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+        reservations:
+          cpus: '0.25'
+          memory: 1024M
+    ports:
+      - 80:80
+    volumes:
+      - /opt/otrs:/opt/otrs
+    depends_on:
+      - mariadb
+    networks:
+      - _net
